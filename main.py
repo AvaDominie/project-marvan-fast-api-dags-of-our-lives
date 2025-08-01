@@ -11,107 +11,39 @@ app = FastAPI()
 logger = logging.getLogger("data_staging")
 logger.setLevel(logging.INFO)
 
+def get_snowflake_connection(schema: str):
+    return snowflake.connector.connect(
+        user=os.getenv('SNOWFLAKE_USER'),
+        password=os.getenv('SNOWFLAKE_PASSWORD'),
+        account=os.getenv('SNOWFLAKE_ACCOUNT'),
+        database=os.getenv('SNOWFLAKE_DATABASE'),
+        schema=schema,
+        warehouse=os.getenv('SNOWFLAKE_WAREHOUSE'),
+        role=os.getenv('SNOWFLAKE_ROLE')
+    )
 
-@app.get("/")
-async def read_root():
-    return {"message": "Hello, World!"}
 
-
-# post 
-# patch
-# delete
-# get
-
-
-# access the CA gold data through an endpoint ID
 @app.get("/CA-Gold-Data/{ID}")
 async def read_data(ID: int):
-    # Snowflake credentials
-    SNOWFLAKE_ACCOUNT = os.getenv('SNOWFLAKE_ACCOUNT')
-    SNOWFLAKE_USER = os.getenv('SNOWFLAKE_USER')
-    SNOWFLAKE_PASSWORD = os.getenv('SNOWFLAKE_PASSWORD')
-    SNOWFLAKE_DATABASE = os.getenv('SNOWFLAKE_DATABASE')
-    SNOWFLAKE_SCHEMA_GOLD = os.getenv('SNOWFLAKE_SCHEMA_GOLD')
-    SNOWFLAKE_WAREHOUSE = os.getenv('SNOWFLAKE_WAREHOUSE')
-    SNOWFLAKE_ROLE = os.getenv('SNOWFLAKE_ROLE')
-
-    # Connect to Snowflake
-    conn = snowflake.connector.connect(
-        user=SNOWFLAKE_USER,
-        password=SNOWFLAKE_PASSWORD,
-        account=SNOWFLAKE_ACCOUNT,
-        database=SNOWFLAKE_DATABASE,
-        schema=SNOWFLAKE_SCHEMA_GOLD,
-        warehouse=SNOWFLAKE_WAREHOUSE,
-        role=SNOWFLAKE_ROLE
-    )
+    conn = get_snowflake_connection(os.getenv('SNOWFLAKE_SCHEMA_GOLD'))
     sf_cursor = conn.cursor()
     sf_cursor.execute(f"SELECT * FROM CA_TESTS_VS_ANTIBODIES WHERE ID = {ID}")
     data = sf_cursor.fetchone()
-    
-    # Get column headers
     columns = [desc[0] for desc in sf_cursor.description]
-    
     logger.info("Connected to Snowflake successfully.")
-
-    # Format data for endpoint
-    if data:
-        # Create a dictionary with column names as keys and data as values
-        formatted_data = dict(zip(columns, data))
-    else:
-        formatted_data = None
-
-    # Close connection
+    formatted_data = dict(zip(columns, data)) if data else None
     conn.close()
-
-    # Return data with headers
-    return {
-        "formatted_data": formatted_data
-    }
+    return {"formatted_data": formatted_data}
 
 
-#  Get gold data back based on geo
-
-
-
-
-
-@app.get("/CA-Covid-Data/{ID}")
-async def read_data(ID: int):
-
-    # Snowflake credentials
-    SNOWFLAKE_ACCOUNT = os.getenv('SNOWFLAKE_ACCOUNT')
-    SNOWFLAKE_USER = os.getenv('SNOWFLAKE_USER')
-    SNOWFLAKE_PASSWORD = os.getenv('SNOWFLAKE_PASSWORD')
-    SNOWFLAKE_DATABASE = os.getenv('SNOWFLAKE_DATABASE')
-    SNOWFLAKE_SCHEMA_SILVER = os.getenv('SNOWFLAKE_SCHEMA_SILVER')
-    SNOWFLAKE_WAREHOUSE = os.getenv('SNOWFLAKE_WAREHOUSE')
-    SNOWFLAKE_ROLE = os.getenv('SNOWFLAKE_ROLE')
-
-
-    # Connect to Snowflake
-    conn = snowflake.connector.connect(
-        user=SNOWFLAKE_USER,
-        password=SNOWFLAKE_PASSWORD,
-        account=SNOWFLAKE_ACCOUNT,
-        database=SNOWFLAKE_DATABASE,
-        schema=SNOWFLAKE_SCHEMA_SILVER,
-        warehouse=SNOWFLAKE_WAREHOUSE,
-        role=SNOWFLAKE_ROLE
-    )
+@app.get("/CA-Gold-Data-By-Province/{geo}")
+async def read_data_by_province(geo: str):
+    conn = get_snowflake_connection(os.getenv('SNOWFLAKE_SCHEMA_GOLD'))
     sf_cursor = conn.cursor()
-    sf_cursor.execute(f"SELECT * FROM SILVER_CA_ANTIBODY WHERE ID = {ID}")
-    data = sf_cursor.fetchone()
+    sf_cursor.execute(f"SELECT * FROM CA_TESTS_VS_ANTIBODIES WHERE GEO = '{geo}'")
+    data = sf_cursor.fetchall()
+    columns = [desc[0] for desc in sf_cursor.description]
     logger.info("Connected to Snowflake successfully.")
-
-
-    # Format data for endpoint
-
-
-
-
-    # Close connection
+    formatted_data = [dict(zip(columns, row)) for row in data] if data else None
     conn.close()
-
-    # Return data
-    return { "data": data }  # Return data in a dictionary format
+    return {"formatted_data": formatted_data}
