@@ -17,7 +17,10 @@ async def read_root():
     return {"message": "Hello, World!"}
 
 
-
+# post 
+# patch
+# delete
+# get
 
 
 # access the CA gold data through an endpoint ID
@@ -45,18 +48,29 @@ async def read_data(ID: int):
     sf_cursor = conn.cursor()
     sf_cursor.execute(f"SELECT * FROM CA_TESTS_VS_ANTIBODIES WHERE ID = {ID}")
     data = sf_cursor.fetchone()
+    
+    # Get column headers
+    columns = [desc[0] for desc in sf_cursor.description]
+    
     logger.info("Connected to Snowflake successfully.")
 
     # Format data for endpoint
-
+    if data:
+        # Create a dictionary with column names as keys and data as values
+        formatted_data = dict(zip(columns, data))
+    else:
+        formatted_data = None
 
     # Close connection
     conn.close()
 
-    # Return data
-    return { "data": data }  # Return data in a dictionary format
+    # Return data with headers
+    return {
+        "formatted_data": formatted_data
+    }
 
 
+#  Get gold data back based on geo
 
 
 
